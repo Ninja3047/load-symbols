@@ -173,6 +173,10 @@ impl CustomDebugInfoParser for SymbolInfoParser {
             error!("Unable to load debug path");
         }
     }
+
+    fn is_external(&self) -> bool {
+        false
+    }
 }
 
 #[no_mangle]
