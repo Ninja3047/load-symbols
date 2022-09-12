@@ -40,7 +40,7 @@ dependencies = [
 [[package]]
 name = "binaryninja"
 version = "0.1.0"
-source = "git+https://github.com/Vector35/binaryninja-api.git?branch=dev#2692f60e1b6d2ef2abea9108c99d930228dd984f"
+source = "git+https://github.com/Vector35/binaryninja-api.git?branch=dev#cdc840a8f6588f656713bdb5a890f8b71787b387"
 dependencies = [
  "binaryninjacore-sys",
  "libc",
@@ -50,7 +50,7 @@ dependencies = [
 [[package]]
 name = "binaryninjacore-sys"
 version = "0.1.0"
-source = "git+https://github.com/Vector35/binaryninja-api.git?branch=dev#2692f60e1b6d2ef2abea9108c99d930228dd984f"
+source = "git+https://github.com/Vector35/binaryninja-api.git?branch=dev#cdc840a8f6588f656713bdb5a890f8b71787b387"
 dependencies = [
  "bindgen",
 ]
