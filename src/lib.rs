@@ -1,10 +1,8 @@
-#![feature(is_some_with)]
+#![feature(is_some_and)]
 #![feature(let_chains)]
 
-use binaryninja::architecture::{Architecture, CoreArchitecture};
 use binaryninja::binaryview::BinaryView;
 use binaryninja::binaryview::BinaryViewExt;
-use binaryninja::callingconvention::CallingConvention;
 use binaryninja::debuginfo::{
     CustomDebugInfoParser, DebugFunctionInfo, DebugInfo, DebugInfoParser,
 };
@@ -31,36 +29,32 @@ struct SymbolInfoParser;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct DebugFunctionInfoBuilder<A: Architecture, S1: BnStrCompatible, S2: BnStrCompatible> {
-    short_name: Option<S1>,
-    full_name: Option<S1>,
-    raw_name: Option<S1>,
+pub struct DebugFunctionInfoBuilder<S: BnStrCompatible> {
+    short_name: Option<S>,
+    full_name: Option<S>,
+    raw_name: Option<S>,
     return_type: Option<Ref<Type>>,
     address: Option<u64>,
-    parameters: Option<Vec<(S2, Ref<Type>)>>,
-    variable_parameters: Option<bool>,
-    calling_convention: Option<Ref<CallingConvention<A>>>,
     platform: Option<Ref<Platform>>,
 }
 
-impl<A: Architecture, S1: BnStrCompatible, S2: BnStrCompatible>
-    DebugFunctionInfoBuilder<A, S1, S2>
-{
+impl<S: BnStrCompatible> DebugFunctionInfoBuilder<S> {
+    #[must_use]
     pub fn new() -> Self {
         DebugFunctionInfoBuilder::default()
     }
 
-    pub fn short_name(mut self, short_name: S1) -> Self {
+    pub fn short_name(mut self, short_name: S) -> Self {
         self.short_name = Some(short_name);
         self
     }
 
-    pub fn full_name(mut self, full_name: S1) -> Self {
+    pub fn full_name(mut self, full_name: S) -> Self {
         self.full_name = Some(full_name);
         self
     }
 
-    pub fn raw_name(mut self, raw_name: S1) -> Self {
+    pub fn raw_name(mut self, raw_name: S) -> Self {
         self.raw_name = Some(raw_name);
         self
     }
@@ -70,16 +64,13 @@ impl<A: Architecture, S1: BnStrCompatible, S2: BnStrCompatible>
         self
     }
 
-    pub fn build(self) -> DebugFunctionInfo<A, S1, S2> {
+    pub fn build(self) -> DebugFunctionInfo<S> {
         DebugFunctionInfo::new(
             self.short_name,
             self.full_name,
             self.raw_name,
             self.return_type,
             self.address,
-            self.parameters,
-            self.variable_parameters,
-            self.calling_convention,
             self.platform,
         )
     }
@@ -92,7 +83,7 @@ fn demangle(s: &str) -> Result<String, Box<dyn Error>> {
     Ok(s)
 }
 
-fn add_function(debug_info: &mut DebugInfo, symbol: object::Symbol) -> Result<(), Box<dyn Error>> {
+fn add_function(debug_info: &mut DebugInfo, symbol: &object::Symbol) -> Result<(), Box<dyn Error>> {
     let name = symbol.name()?;
     let demangled = match demangle(name) {
         Ok(d) => d,
@@ -101,7 +92,7 @@ fn add_function(debug_info: &mut DebugInfo, symbol: object::Symbol) -> Result<()
 
     info!("Function added: {}: {:x?}", demangled, symbol.address());
 
-    let new_func: DebugFunctionInfo<CoreArchitecture, &str, &str> = DebugFunctionInfoBuilder::new()
+    let new_func: DebugFunctionInfo<&str> = DebugFunctionInfoBuilder::new()
         .raw_name(name)
         .full_name(&demangled)
         .address(symbol.address())
@@ -110,7 +101,7 @@ fn add_function(debug_info: &mut DebugInfo, symbol: object::Symbol) -> Result<()
     Ok(())
 }
 
-fn add_data(debug_info: &mut DebugInfo, symbol: object::Symbol) -> Result<(), Box<dyn Error>> {
+fn add_data(debug_info: &mut DebugInfo, symbol: &object::Symbol) -> Result<(), Box<dyn Error>> {
     let new_type = Type::void();
 
     let name = symbol.name()?;
@@ -125,15 +116,14 @@ fn add_data(debug_info: &mut DebugInfo, symbol: object::Symbol) -> Result<(), Bo
 }
 
 fn get_symbols(debug_info: &mut DebugInfo, path: &PathBuf) -> Result<(), Box<dyn Error>> {
-    let file = fs::File::open(&path)?;
+    let file = fs::File::open(path)?;
     let file = unsafe { memmap2::Mmap::map(&file) }?;
     let file = object::File::parse(&*file)?;
     file.symbols()
-        .into_iter()
-        .filter(|symbol| symbol.is_definition())
+        .filter(ObjectSymbol::is_definition)
         .try_for_each(|symbol| match symbol.kind() {
-            SymbolKind::Text => add_function(debug_info, symbol),
-            SymbolKind::Data => add_data(debug_info, symbol),
+            SymbolKind::Text => add_function(debug_info, &symbol),
+            SymbolKind::Data => add_data(debug_info, &symbol),
             _ => Ok(()),
         })?;
 
@@ -141,7 +131,7 @@ fn get_symbols(debug_info: &mut DebugInfo, path: &PathBuf) -> Result<(), Box<dyn
 }
 
 fn get_debug_path(view: &BinaryView) -> Option<PathBuf> {
-    if let Ok(path) = fs::canonicalize(PathBuf::from(view.metadata().filename().to_string())) &&
+    if let Ok(path) = fs::canonicalize(PathBuf::from(view.file().filename().to_string())) &&
        let Ok(path) = path.strip_prefix("/") {
         let f = Path::new("/usr/lib/debug")
             .join(path);
@@ -151,7 +141,9 @@ fn get_debug_path(view: &BinaryView) -> Option<PathBuf> {
             },
             None => b"debug".to_vec()
         };
-        Some(f.with_extension(OsStr::from_bytes(ext.as_slice())))
+        let debug_path = f.with_extension(OsStr::from_bytes(ext.as_slice()));
+        info!("Loading symbols from {}", debug_path.to_string_lossy());
+        Some(debug_path)
     } else {
         None
     }
@@ -163,15 +155,22 @@ impl CustomDebugInfoParser for SymbolInfoParser {
         get_debug_path(view).is_some_and(|f| f.exists())
     }
 
-    fn parse_info(&self, debug_info: &mut DebugInfo, view: &BinaryView) {
+    fn parse_info(
+        &self,
+        debug_info: &mut DebugInfo,
+        view: &BinaryView,
+        _progress: Box<dyn Fn(usize, usize) -> Result<(), ()>>,
+    ) -> bool {
         if let Some(debug_path) = get_debug_path(view) {
-            info!("Loading symbols from {}", debug_path.to_string_lossy());
             if let Err(err) = get_symbols(debug_info, &debug_path) {
                 error!("Loading symbols failed {:?}", err);
+                return false;
             }
         } else {
             error!("Unable to load debug path");
+            return false;
         }
+        true
     }
 }
 
