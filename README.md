@@ -2,8 +2,8 @@
 Binary Ninja plugin written in Rust to automatically apply symbol information from split debug info on Linux.
 
 ## Requirements
- * Last tested with Binary Ninja 3.1.3520-dev
- * Requires nightly Rust (last tested with rustc 1.63.0-nightly (21e9336fe 2022-06-18)
+ * Last tested with Binary Ninja 3.2.3983-dev
+ * Requires nightly Rust (last tested with rustc 1.68.0-nightly (afaf3e07a 2023-01-14)
 
 ## Building
  * `cargo build --release`
