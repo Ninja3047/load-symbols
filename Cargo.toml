@@ -9,8 +9,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 binaryninja = {git = "https://github.com/Vector35/binaryninja-api.git", branch = "dev"}
-cpp_demangle = "0.3.5"
+cpp_demangle = "0.4.0"
 derivative = "2.2.0"
 log = "0.4.17"
-memmap2 = "0.5.7"
-object = "0.29.0"
+memmap2 = "0.5.8"
+object = "0.30.2"
