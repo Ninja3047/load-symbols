@@ -42,9 +42,7 @@ fn link_path() -> PathBuf {
 
 fn main() {
     // Use BINARYNINJADIR first for custom BN builds/configurations (BN devs/build server), fallback on defaults
-    let install_path = env::var("BINARYNINJADIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| link_path());
+    let install_path = env::var("BINARYNINJADIR").map_or_else(|_| link_path(), PathBuf::from);
 
     #[cfg(target_os = "linux")]
     println!(
