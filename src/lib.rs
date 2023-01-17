@@ -15,8 +15,6 @@ use binaryninja::types::Type;
 use cpp_demangle::DemangleOptions;
 use object::{Object, ObjectSymbol, SymbolKind};
 
-use derivative::Derivative;
-
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
@@ -27,9 +25,8 @@ use log::{error, info, warn, LevelFilter};
 
 struct SymbolInfoParser;
 
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
-pub struct DebugFunctionInfoBuilder<S: BnStrCompatible> {
+#[derive(Default)]
+pub struct DebugFunctionInfoBuilder<S: BnStrCompatible + Default> {
     short_name: Option<S>,
     full_name: Option<S>,
     raw_name: Option<S>,
@@ -38,7 +35,7 @@ pub struct DebugFunctionInfoBuilder<S: BnStrCompatible> {
     platform: Option<Ref<Platform>>,
 }
 
-impl<S: BnStrCompatible> DebugFunctionInfoBuilder<S> {
+impl<S: BnStrCompatible + Default> DebugFunctionInfoBuilder<S> {
     #[must_use]
     pub fn new() -> Self {
         DebugFunctionInfoBuilder::default()
