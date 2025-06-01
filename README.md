@@ -1,3 +1,6 @@
+> [!NOTE]
+> this repo is no longer necessary since this is now built in to the latest version of Binary Ninja
+
 # Load Symbols
 Binary Ninja plugin written in Rust to automatically apply symbol information from split debug info on Linux.
 
